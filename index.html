@@ -1,0 +1,25 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>The Daily Psalmist</title><link rel="stylesheet" href="style.css"></head><body>
+<header><a href="./">The Daily <b>Psalmist</b></a></header><nav id="cats"></nav><main id="m"><p class="m">Loading…</p></main>
+<footer>© The Daily Psalmist</footer>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.110.1"></script>
+<script src="config.js"></script>
+<script>
+const $=s=>document.querySelector(s),esc=s=>String(s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const safe=u=>/^https?:\/\//.test(u||'')?esc(u):'#',CATS=['All','News','Gospel','Entertainment','Sports','Lifestyle'];
+let P=[],cat='All';const dt=d=>new Date(d).toLocaleDateString('en-KE',{day:'numeric',month:'short',year:'numeric'});
+function embed(u){if(!u)return'';const m=u.match(/(?:youtu\.be\/|v=|shorts\/)([\w-]{11})/);
+if(m)return`<div class="v"><iframe src="https://www.youtube.com/embed/${m[1]}" allowfullscreen></iframe></div>`;
+if(/facebook\.com|fb\.watch/.test(u))return`<div class="v"><iframe src="https://www.facebook.com/plugins/video.php?href=${encodeURIComponent(u)}" allowfullscreen></iframe></div>`;
+return`<video controls src="${safe(u)}"></video>`}
+const card=(p,b)=>`<a class="card ${b?'big':''}" href="#p=${p.id}">${p.image_url?`<img src="${safe(p.image_url)}" alt="">`:''}<div><small>${esc(p.category)} · ${dt(p.created_at)}</small><h2>${esc(p.title)}</h2></div></a>`;
+function route(){const m=location.hash.match(/^#p=(.+)/);$('#cats').style.display=m?'none':'flex';
+if(m){const p=P.find(x=>x.id==m[1]);if(!p){$('#m').innerHTML='<p class="m">Post not found. <a href="./">Home</a></p>';return}
+document.title=p.title+' | The Daily Psalmist';
+$('#m').innerHTML=`<article><small>${esc(p.category)} · ${dt(p.created_at)}</small><h1>${esc(p.title)}</h1>${p.image_url?`<img class="hero" src="${safe(p.image_url)}" alt="">`:''}${embed(p.video_url)}${esc(p.body).split(/\n\n+/).map(x=>`<p>${x.replace(/\n/g,'<br>')}</p>`).join('')}${p.link_url?`<a class="btn" href="${safe(p.link_url)}" target="_blank" rel="noopener">Related link →</a>`:''}<a class="btn o" href="https://wa.me/?text=${encodeURIComponent(p.title+' '+location.href)}" target="_blank" rel="noopener">Share on WhatsApp</a><p><a href="./">← All stories</a></p></article>`;scrollTo(0,0);return}
+document.title='The Daily Psalmist';const L=P.filter(p=>cat=='All'||p.category==cat);
+$('#cats').innerHTML=CATS.map(c=>`<button class="${c==cat?'on':''}" onclick="cat='${c}';route()">${c}</button>`).join('');
+$('#m').innerHTML=L.length?`<div class="grid">${L.map((p,i)=>card(p,i==0)).join('')}</div>`:'<p class="m">No stories yet.</p>'}
+addEventListener('hashchange',route);
+if(!/^http/.test(CFG.url))$('#m').innerHTML='<p class="m">Site not set up yet: add your Supabase details to config.js.</p>';
+else{const sb=supabase.createClient(CFG.url,CFG.key);sb.from('posts').select('*').eq('published',true).order('created_at',{ascending:false}).then(r=>{P=r.data||[];route()})}
+</script></body></html>
