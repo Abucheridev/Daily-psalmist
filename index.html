@@ -1,0 +1,40 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>The Daily Psalmist</title><link rel="stylesheet" href="style.css"><script async src="https://www.googletagmanager.com/gtag/js?id=G-YV747QX81H"></script></head><body>
+<header class="top"><span></span><a class="logo" href="./">The Daily <b>Psalmist</b><small>Stories Beyond Headlines</small></a>
+<button id="mb" onclick="tm()" aria-label="Menu"><svg width="34" height="26" viewBox="0 0 34 26" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><circle cx="9" cy="9" r="6"/><path d="M4.8 13.2L1.5 16.5M19 6h13M19 13h13M19 20h13"/></svg></button></header>
+<div id="tp" hidden></div><main id="m"><p class="m">Loading…</p></main>
+<footer>© The Daily Psalmist</footer>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.110.1"></script>
+<script src="config.js"></script>
+<script>
+window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments)}gtag('js',new Date());gtag('config','G-YV747QX81H',{send_page_view:false});
+const pv=()=>gtag('event','page_view',{page_title:document.title,page_location:location.href});
+const $=s=>document.querySelector(s),esc=s=>String(s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const safe=u=>/^https?:\/\//.test(u||'')?esc(u):'#',CATS=['News','Politics','Business','Sports','Entertainment','Gospel','Lifestyle','Education','Health','Technology'];
+let pref=[];try{pref=JSON.parse(localStorage.dpt||'[]')}catch(e){}
+let P=[],cat=pref.length?'For You':'All',mo=false;
+const ago=d=>{const m=Math.max(1,Math.round((Date.now()-new Date(d))/6e4));return m<60?m+(m>1?' minutes':' minute')+' ago':m<1440?Math.floor(m/60)+(m>=120?' hours':' hour')+' ago':m<43200?Math.floor(m/1440)+(m>=2880?' days':' day')+' ago':new Date(d).toLocaleDateString('en-KE',{day:'numeric',month:'short',year:'numeric'})};
+const clk='<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>';
+const meta=p=>`<div class="meta"><span class="pill">${esc(p.category)}</span><span>${clk}${ago(p.created_at)}</span></div>`;
+const item=(p,l)=>`<a class="it ${l?'lead':''}" href="#p=${p.id}">${l&&p.image_url?`<img src="${safe(p.image_url)}" alt="">`:''}<h2 class="hl">${esc(p.title)}</h2>${meta(p)}</a>`;
+function embed(u){if(!u)return'';const m=u.match(/(?:youtu\.be\/|v=|shorts\/)([\w-]{11})/);
+if(m)return`<div class="v"><iframe src="https://www.youtube.com/embed/${m[1]}" allowfullscreen></iframe></div>`;
+if(/facebook\.com|fb\.watch/.test(u))return`<div class="v"><iframe src="https://www.facebook.com/plugins/video.php?href=${encodeURIComponent(u)}" allowfullscreen></iframe></div>`;
+return`<video controls src="${safe(u)}"></video>`}
+function rp(){const p=$('#tp');p.hidden=!mo;if(!mo)return;
+const secs=['All',...(pref.length?['For You']:[]),...CATS];
+p.innerHTML=`<div class="mh">Sections</div><div class="chips">${secs.map(c=>`<button class="${c==cat?'on':''}" onclick="go('${c}')">${c}</button>`).join('')}</div><div class="mh">My topics</div><p class="m">Tick what you want to read. Your picks appear under "For You" and are saved on this device.</p><div class="tl2">${CATS.map(c=>`<label class="tl"><input type="checkbox" ${pref.includes(c)?'checked':''} onchange="tg('${c}')"> ${c}</label>`).join('')}</div><button class="btn" onclick="tm()">Done</button>`}
+function tm(){mo=!mo;rp()}
+function go(c){cat=c;mo=false;rp();if(location.hash)location.hash='';else route();scrollTo(0,0)}
+function tg(c){pref=pref.includes(c)?pref.filter(x=>x!=c):[...pref,c];try{localStorage.dpt=JSON.stringify(pref)}catch(e){}
+if(pref.length&&cat=='All')cat='For You';if(!pref.length&&cat=='For You')cat='All';rp();route()}
+function route(){const m=location.hash.match(/^#p=(.+)/);
+if(m){const p=P.find(x=>x.id==m[1]);if(!p){$('#m').innerHTML='<p class="m" style="margin-top:20px">Post not found. <a href="./">Home</a></p>';return}
+document.title=p.title+' | The Daily Psalmist';
+$('#m').innerHTML=`<article><h1>${esc(p.title)}</h1>${meta(p)}${p.image_url?`<img class="hero" src="${safe(p.image_url)}" alt="">`:''}${embed(p.video_url)}${esc(p.body).split(/\n\n+/).map(x=>`<p>${x.replace(/\n/g,'<br>')}</p>`).join('')}${p.link_url?`<a class="btn" href="${safe(p.link_url)}" target="_blank" rel="noopener">Related link →</a>`:''}<a class="btn o" href="https://wa.me/?text=${encodeURIComponent(p.title+' '+location.href)}" target="_blank" rel="noopener">Share on WhatsApp</a><p><a href="./">← All stories</a></p></article>`;scrollTo(0,0);return}
+document.title='The Daily Psalmist';
+const L=P.filter(p=>cat=='All'||(cat=='For You'?pref.includes(p.category):p.category==cat));
+$('#m').innerHTML=`<div class="h">${cat=='All'?'Kenya Breaking News':esc(cat)}</div>`+(L.length?`<div class="lb">Latest</div>`+item(L[0],1)+L.slice(1).map(p=>item(p)).join(''):'<p class="m">No stories yet.</p>')}
+rp();addEventListener('hashchange',()=>{route();pv()});
+if(!/^http/.test(CFG.url))$('#m').innerHTML='<p class="m">Site not set up yet: add your Supabase details to config.js.</p>';
+else{const sb=supabase.createClient(CFG.url,CFG.key);sb.from('posts').select('*').eq('published',true).order('created_at',{ascending:false}).then(r=>{P=r.data||[];route();pv()})}
+</script></body></html>
