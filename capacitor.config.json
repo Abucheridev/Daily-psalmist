@@ -1,0 +1,9 @@
+
+{
+  "appId": "ke.co.abucheridev.dailypsalmist",
+  "appName": "The Daily Psalmist",
+  "webDir": "www",
+  "server": {
+    "androidScheme": "https"
+  }
+}
