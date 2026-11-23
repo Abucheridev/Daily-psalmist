@@ -1,0 +1,61 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>Admin | The Daily Psalmist</title><link rel="stylesheet" href="style.css"></head><body>
+<header><a href="./">The Daily <b>Psalmist</b></a> <small style="color:#e0b04a">admin</small></header><main id="app"></main>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.110.1"></script>
+<script src="config.js"></script>
+<script>
+const $=s=>document.querySelector(s),esc=s=>String(s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const CATS=['News','Politics','Business','Sports','Entertainment','Gospel','Lifestyle','Education','Health','Technology'],sb=supabase.createClient(CFG.url,CFG.key);let E=null,LIST=[],SUBS=[];
+async function init(){const{data}=await sb.auth.getSession();data.session?editor():loginUI()}
+function loginUI(){$('#app').innerHTML=`<h1>Sign in</h1><input id="em" type="email" placeholder="Email"><input id="pw" type="password" placeholder="Password"><button class="btn" onclick="login()">Sign in</button><p id="er" class="m"></p>`}
+async function login(){const{error}=await sb.auth.signInWithPassword({email:$('#em').value.trim(),password:$('#pw').value});error?$('#er').textContent=error.message:editor()}
+async function editor(){const{data}=await sb.from('posts').select('*').order('created_at',{ascending:false});LIST=data||[];const sr=await sb.from('subscribers').select('*').order('created_at',{ascending:false});SUBS=sr.data||[];const e=E||{};
+$('#app').innerHTML=`<h1>${E?'Edit post':'New post'}</h1>${E?'':aiBox()}<input id="t" placeholder="Title" value="${esc(e.title)}">
+<select id="c">${CATS.map(c=>`<option ${c==e.category?'selected':''}>${c}</option>`).join('')}</select>
+<textarea id="b" placeholder="Write your story. A blank line starts a new paragraph.">${esc(e.body)}</textarea>
+<label>Image ${e.image_url?'(current one is kept unless you pick a new one)':''}</label><input id="f" type="file" accept="image/*">
+<input id="v" placeholder="Video link (YouTube, Facebook or .mp4)" value="${esc(e.video_url)}">
+<input id="l" placeholder="Related link (https://…)" value="${esc(e.link_url)}">
+<label><input id="pb" type="checkbox" style="width:auto" ${e.published!==false?'checked':''}> Published</label><br>
+<button class="btn" id="sv" onclick="save()">${E?'Update':'Publish'}</button>${E?'<button class="btn o" onclick="E=null;editor()">Cancel</button>':''}
+<p id="er" class="m"></p><h2>Your posts · ${LIST.reduce((a,p)=>a+(p.views||0),0)} total views</h2>`+LIST.map(p=>`<div class="row"><span>${esc(p.title)}${p.published?'':' (draft)'}<br><small>${p.views||0} views</small></span><button class="btn o" onclick="ed('${p.id}')">Edit</button><button class="btn o" onclick="rm('${p.id}')">Delete</button></div>`).join('')+`<h2>Subscribers · ${SUBS.length}</h2><button class="btn o" onclick="copyS()">Copy all emails</button>`+SUBS.map(s=>`<div class="row"><span>${esc(s.email)}<br><small>${new Date(s.created_at).toLocaleDateString()}${s.topics&&s.topics.length?' · '+esc(s.topics.join(', ')):''}</small></span><button class="btn o" onclick="rs('${s.id}')">Remove</button></div>`).join('')+`<p><button class="btn o" onclick="sb.auth.signOut().then(init)">Sign out</button></p>`}
+function ed(id){E=LIST.find(p=>p.id==id);editor();scrollTo(0,0)}
+const tmo=(p,ms,m)=>Promise.race([p,new Promise((_,j)=>setTimeout(()=>j(new Error(m)),ms))]);
+function shrink(f){return new Promise(r=>{const i=new Image();i.onerror=()=>r(f);i.onload=()=>{try{const k=Math.min(1,1280/i.width),c=document.createElement('canvas');c.width=i.width*k;c.height=i.height*k;c.getContext('2d').drawImage(i,0,0,c.width,c.height);c.toBlob(b=>r(b||f),'image/jpeg',.8)}catch(e){r(f)}};i.src=URL.createObjectURL(f)})}
+async function save(){const b=$('#sv');b.disabled=true;$('#er').textContent='Saving…';
+try{let img=E&&E.image_url||null;const f=$('#f').files[0];
+if(f){$('#er').textContent='Compressing image…';const bl=await tmo(shrink(f),20000,'Image processing timed out. Try another image, or publish without one.');$('#er').textContent='Uploading image…';const n=Date.now()+'.jpg',u=await tmo(sb.storage.from('images').upload(n,bl,{contentType:bl.type||'image/jpeg'}),60000,'Image upload timed out. Check your connection and try again.');if(u.error)throw u.error;img=sb.storage.from('images').getPublicUrl(n).data.publicUrl}
+const row={title:$('#t').value.trim(),category:$('#c').value,body:$('#b').value,image_url:img,video_url:$('#v').value.trim()||null,link_url:$('#l').value.trim()||null,published:$('#pb').checked};
+if(!row.title)throw new Error('Please add a title');
+$('#er').textContent='Saving post…';const r=await tmo(E?sb.from('posts').update(row).eq('id',E.id):sb.from('posts').insert(row),30000,'Saving timed out. Check your connection and try again.');if(r.error)throw r.error;
+E=null;editor()}catch(x){$('#er').textContent=x.message;b.disabled=false}}
+async function rm(id){if(confirm('Delete this post?')){await sb.from('posts').delete().eq('id',id);editor()}}
+function aiBox(){const k=localStorage.gk||'',m=localStorage.gm||'gemini-3.6-flash';
+return`<details ${k?'':'open'} style="margin:10px 0;padding:12px;border:1px solid var(--l);border-radius:8px"><summary style="cursor:pointer;font:600 16px system-ui">✨ Write with AI</summary>
+<input id="at" placeholder="Topic or headline, e.g. Fuel prices in Kenya this week">
+<textarea id="an" style="min-height:90px" placeholder="Optional: facts or notes the story must use"></textarea>
+<select id="al"><option value="0">Short (about 200 words)</option><option value="1" selected>Medium (about 400 words)</option><option value="2">Long (about 700 words)</option></select>
+<label><input id="ag" type="checkbox" checked style="width:auto"> Use Google Search for the latest facts</label><br>
+<button class="btn" onclick="gen()">Write draft</button><p id="am" class="m"></p>
+<label>Gemini API key (saved on this device only)</label><input id="ak" type="password" value="${esc(k)}" onchange="localStorage.gk=this.value.trim()" placeholder="Paste your key">
+<label>Model</label><input value="${esc(m)}" onchange="localStorage.gm=this.value.trim()"></details>`}
+async function gen(){const k=localStorage.gk,m=$('#am'),topic=$('#at').value.trim(),notes=$('#an').value.trim();
+if(!k){m.textContent='Paste your Gemini API key below first.';return}
+if(!topic){m.textContent='Type a topic or headline first.';return}
+m.textContent='Writing… this can take up to a minute.';
+const W=['200','400','700'][$('#al').value],mod=localStorage.gm||'gemini-3.6-flash';
+const prompt=`You are a news writer for The Daily Psalmist, a Kenyan news site. Write an ORIGINAL news article in your own words about: ${topic}.\n${notes?'Use these facts: '+notes+'\n':''}Rules: about ${W} words; neutral, factual tone; short paragraphs separated by a blank line; never copy sentences from any source; do not invent facts, quotes or numbers; attribute claims to their sources. Output format: the first line is the headline only, then a blank line, then the article. Plain text only: no markdown, no asterisks, no bullet symbols, no source list.`;
+const body={contents:[{parts:[{text:prompt}]}]};if($('#ag').checked)body.tools=[{google_search:{}}];
+try{const r=await tmo(fetch('https://generativelanguage.googleapis.com/v1beta/models/'+encodeURIComponent(mod)+':generateContent',{method:'POST',headers:{'Content-Type':'application/json','x-goog-api-key':k},body:JSON.stringify(body)}),90000,'Timed out. Please try again.');
+const d=await r.json();if(!r.ok)throw new Error((d.error&&d.error.message)||('Error '+r.status));
+const c=d.candidates&&d.candidates[0];let t=((c&&c.content&&c.content.parts)||[]).map(p=>p.text||'').join('').trim();
+if(!t)throw new Error('The AI returned nothing. Try rewording the topic.');
+const L=t.split('\n'),title=L.shift().replace(/^[#*\s]+|[*\s]+$/g,'');let bt=L.join('\n').trim();
+const ch=(c.groundingMetadata&&c.groundingMetadata.groundingChunks)||[],src=[...new Set(ch.map(x=>x.web&&x.web.title).filter(Boolean))];
+if(src.length)bt+='\n\nSources: '+src.join(', ');
+$('#t').value=title;$('#b').value=bt;$('#pb').checked=false;
+m.textContent='Draft ready below. Check every fact, tick Published when you are happy, then tap Publish.'}
+catch(e){m.textContent=e.message+($('#ag').checked?' (If this mentions search or quota, untick "Use Google Search" and try again.)':'')}}
+async function rs(id){if(confirm('Remove this subscriber?')){await sb.from('subscribers').delete().eq('id',id);editor()}}
+function copyS(){navigator.clipboard.writeText(SUBS.map(s=>s.email).join(', ')).then(()=>alert('Emails copied.'),()=>{})}
+init();
+</script></body></html>
